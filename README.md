@@ -1,4 +1,4 @@
-## Proprioception does not modulate the strength of the rubber hand illusion
+## Proprioceptive Accuracy and the Degree of Overlap between Visual and Spatial Estimates Do Not Modulate the Strength of Rubber Hand Illusion
 
 Paweł Motyka<sup>1</sup> & Piotr Litwin<sup>1</sup>
 <br/>
