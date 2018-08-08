@@ -1,0 +1,409 @@
+---
+title: "Proprioceptive Accuracy and the Degree of Overlap between Visual and Spatial Estimates Do Not Modulate the Strength of Rubber Hand Illusion"
+
+author: "Pawel Motyka"
+date: "15th March 2018"
+output: html_document
+---
+
+Load required packages and set up the data directory
+
+```{r, message=FALSE, warning=FALSE}
+
+# Load required packages 
+library("plyr")
+library("gdata")
+library("BayesFactor")
+library("ggplot2")
+library("scales")
+
+# Set up the data directory
+data_dir <- 'N:/RHI_data'
+setwd(data_dir)
+
+```
+
+Load and preprocess the data
+
+```{r}
+
+# Read proprioceptive accuracy data
+data <- read.table("RHI_proprioception.TXT", header = TRUE, sep = ",", fill = TRUE, stringsAsFactors = FALSE)
+
+# Read RHI questionnaire data
+data_RHI <- read.table("RHI_data.csv", header = TRUE, sep = ";", fill = TRUE, stringsAsFactors = FALSE)
+data_RHI <- data_RHI[,c(-17:-19)]
+
+# Rename variables
+data <- rename(data, replace = c("IDPacjenta" = "ID"))
+data <- rename(data, replace = c("IDPozycji" = "Nr"))
+data <- rename(data, replace = c("NrBadania" = "Examination_nr"))
+data <- rename(data, replace = c("RodzajBadaniaNr" = "Examination_type_nr"))
+data <- rename(data, replace = c("RodzajBadaniaTekst" = "Task_type"))
+data <- rename(data, replace = c("DataBadania" = "Date"))
+data <- rename(data, replace = c("WZadane" = "target"))
+data <- rename(data, replace = c("WOdczyt" = "performed"))
+data <- data[,c(-9:-13)]
+data$Task_type <- revalue(data$Task_type, c("Odwiedzenie"="abduction", "Zgiêcie"= "flexion"))
+
+## Create variable with target positions (prioprioception assessmment) saved as factors 
+data$target_class[data$target > 45 & data$target < 75] <- "60"
+data$target_class[data$target > 75 & data$target < 105] <- "90"
+data$target_class[data$target > 105 & data$target < 135] <- "120"
+
+data$target_class <- factor(data$target_class)
+
+# Check the expected number of observations for each ID
+count(data,c('ID'))
+count(data$target_class == "60")
+count(data$target_class == "90")
+count(data$target_class == "120")
+
+# Define the main variable: Prioprioceptive accuracy, i.e., the difference between target position and reproduced(performed) position
+data$diff <- data$target - data$performed
+data$diff_abs <- abs(data$target - data$performed)
+
+```
+
+Create the dataframe with proprioception-related variables for each indvidual
+
+```{r}
+
+
+data_ID <- data.frame(ID = integer(0),
+                      diff_M= numeric(0), # mean reproduction error (the difference between target and reproduced position)
+                      diff_M_abs = numeric(0), # mean reproduction error [absolute value]
+                      diff_SD = numeric(0), # variance of the reproduction errors
+                      diff_M_Ab = numeric(0), # mean reproduction error - abduction only
+                      diff_M_abs_Ab = numeric(0), # mean reproduction error - abduction only [abs]
+                      diff_SD_Ab = numeric(0), # variance of the reproduction errors - abduction only
+                      diff_M_Fl = numeric(0), # mean reproduction error - flexion only
+                      diff_M_abs_Fl = numeric(0), # mean reproduction error - flexion only [abs]
+                      diff_SD_Fl = numeric(0), # variance of the reproduction errors - flexion only
+                      diff_M_abs_60_Ab = numeric(0), #  mean reproduction error [abs] - abduction - 60 degrees
+                      diff_M_abs_90_Ab = numeric(0), #  mean reproduction error [abs] - abduction - 90 degrees
+                      diff_M_abs_120_Ab = numeric(0), # mean reproduction error [abs] - abduction - 120 degrees
+                      diff_SD_60_Ab = numeric(0), #  variance of the reproduction errors- abduction - 60 degrees
+                      diff_SD_90_Ab = numeric(0), #  variance of the reproduction errors - abduction - 90 degrees
+                      diff_SD_120_Ab = numeric(0), # variance of the reproduction errors- abduction - 120 degrees
+                      diff_M_abs_60_Fl = numeric(0), #  mean reproduction error [abs] - flexion - 60 degrees
+                      diff_M_abs_90_Fl = numeric(0), #  mean reproduction error [abs] - flexion - 90 degrees
+                      diff_M_abs_120_Fl = numeric(0), # mean reproduction error [abs] - flexion - 120 degrees
+                      diff_SD_60_Fl = numeric(0), #  variance of the reproduction errors- flexion - 60 degrees
+                      diff_SD_90_Fl = numeric(0), #  variance of the reproduction errors - flexion - 90 degrees
+                      diff_SD_120_Fl = numeric(0)) # variance of the reproduction errors- flexion - 120 degrees
+
+
+# extract the list of participants
+ID_list <- unique(data$ID)
+
+for (p in ID_list) { # LOOP PARTICIPANTS (p)
+  
+ # GENERAL MEASURES  
+  
+ diff_M <- mean(data$diff[data$ID == p]) # mean reproduction error 
+ diff_M_abs <- mean(data$diff_abs[data$ID == p]) # mean reproduction error [absolute value]
+ diff_SD <- sd(data$diff[data$ID == p]) # variance of the reproduction errors
+ 
+ 
+ # Measures for abduction only
+ 
+ diff_M_Ab <- mean(data$diff[data$ID == p & data$Task_type == "abduction"])
+ diff_M_abs_Ab <- mean(data$diff_abs[data$ID == p & data$Task_type == "abduction"])
+ diff_SD_Ab <- sd(data$diff[data$ID == p & data$Task_type == "abduction"])
+ 
+ # Measures for flexion only
+ 
+ diff_M_Fl <- mean(data$diff[data$ID == p & data$Task_type == "flexion"])
+ diff_M_abs_Fl <- mean(data$diff_abs[data$ID == p & data$Task_type == "flexion"])
+ diff_SD_Fl <- sd(data$diff[data$ID == p & data$Task_type == "flexion"])
+ 
+ 
+ ## Measures for particular assessment positions (60, 90, 120 degrees)
+ 
+    # Abduction
+ 
+    diff_M_abs_60_Ab <- mean(data$diff_abs[data$ID == p & data$target_class == "60" & data$Task_type == "abduction"]) 
+    diff_M_abs_90_Ab <- mean(data$diff_abs[data$ID == p & data$target_class == "90" & data$Task_type == "abduction"])
+    diff_M_abs_120_Ab <- mean(data$diff_abs[data$ID == p & data$target_class == "120" & data$Task_type == "abduction"])
+    
+    diff_SD_60_Ab <- sd(data$diff[data$ID == p & data$target_class == "60" & data$Task_type == "abduction"]) 
+    diff_SD_90_Ab <- sd(data$diff[data$ID == p & data$target_class == "90" & data$Task_type == "abduction"])
+    diff_SD_120_Ab <- sd(data$diff[data$ID == p & data$target_class == "120" & data$Task_type == "abduction"])
+    
+ 
+    # Flexion
+ 
+    diff_M_abs_60_Fl <- mean(data$diff_abs[data$ID == p & data$target_class == "60" & data$Task_type == "flexion"]) 
+    diff_M_abs_90_Fl <- mean(data$diff_abs[data$ID == p & data$target_class == "90" & data$Task_type == "flexion"])
+    diff_M_abs_120_Fl <- mean(data$diff_abs[data$ID == p & data$target_class == "120" & data$Task_type == "flexion"])
+    
+    diff_SD_60_Fl <- sd(data$diff[data$ID == p & data$target_class == "60" & data$Task_type == "flexion"]) 
+    diff_SD_90_Fl <- sd(data$diff[data$ID == p & data$target_class == "90" & data$Task_type == "flexion"])
+    diff_SD_120_Fl <- sd(data$diff[data$ID == p & data$target_class == "120" & data$Task_type == "flexion"])
+    
+ 
+    # Create the dataframe
+    data_ID[nrow(data_ID)+1,] <- c(p,diff_M,diff_M_abs, diff_SD, diff_M_Ab, diff_M_abs_Ab,  diff_SD_Ab, diff_M_Fl, diff_M_abs_Fl, diff_SD_Fl, diff_M_abs_60_Ab, diff_M_abs_90_Ab, diff_M_abs_120_Ab, diff_SD_60_Ab, diff_SD_90_Ab, diff_SD_120_Ab, diff_M_abs_60_Fl, diff_M_abs_90_Fl, diff_M_abs_120_Fl, diff_SD_60_Fl, diff_SD_90_Fl, diff_SD_120_Fl)
+
+} # END: LOOP PARTICIPANTS (p)
+
+
+# normalize the main prioprioceptive accuracy measure (mean reproduction error - absolute value)
+data_ID$diff_Z <- (data_ID$diff_M_abs - mean(data_ID$diff_M_abs))/sd(data_ID$diff_M_abs)
+
+# plot normalized prioprioceptive accuracy data 
+hist(data_ID$diff_Z, xlab = "Mean reproduction error \n (standard deviations)", col = "grey", ylab = "Frequency (ID)", main = " ")
+
+# remove the outlier (ID 32) according to a three-standard deviation criterion 
+data_ID <- data_ID[data_ID$ID!=32,]
+
+
+```
+
+Examine the relation between prioprioceptive accuracy and proprioceptive precision
+
+```{r}
+
+# test normality of the prioprioceptive variables
+shapiro.test(data_ID$diff_M_abs)
+shapiro.test(data_ID$diff_SD)
+
+# run correlation
+cor.test(data_ID$diff_M_abs, data_ID$diff_SD, method = "spearman")
+
+# Plot figure 1 _ relation between proprioceptive accuracy and precison (variance of the errors)
+
+fig1 <- ggplot(data = data_ID, aes(x = diff_M_abs, y = diff_SD)) + geom_smooth(col = "grey8", method = "lm", level=0.95, alpha = 0.7) + geom_point(col = "grey 15") + labs(x = "Mean reproduction error in degrees" , y = "Variance of the errors") + scale_fill_manual() + theme_classic() +  ggtitle("Proprioception assessment") + theme(plot.title = element_text(hjust = 0.5, face = "bold", size = 18), axis.text=element_text(size=16), axis.title=element_text(size=16,face="bold"))
+
+fig1
+
+
+```
+
+
+Preprocess the illusion strength data (questionnaire)
+
+```{r}
+
+# Merging proprioceptive data with Rubber Hand Illusion data
+data_ID <- merge(data_ID, data_RHI, by = 'ID')
+
+# Participants: main statistics
+mean(data_ID$age)
+sd(data_ID$age)
+count(data_ID$sex[data_ID$sex=="K"])
+count(data_ID$Gr[data_ID$Gr=="F"])
+
+#  Summarize the relevant questions measuring the strength of the illusion
+data_ID$str_syn <- (data_ID$Q1_syn + data_ID$Q2_syn + data_ID$Q3_syn)/3 # illusion strength (synchronous condition)
+data_ID$str_asyn <- (data_ID$Q1_asyn + data_ID$Q2_asyn + data_ID$Q3_asyn)/3 # illusion strength (asynchronous condition)
+data_ID$diff_synasyn <- data_ID$str_syn - data_ID$str_asyn # illusion strength - the difference between syn/asyn conditions
+
+# Format decimal places
+round(data_ID$str_syn, digits=5)
+round(data_ID$str_asyn, digits=5)
+round(data_ID$diff_synasyn, digits=5)
+
+# Save experimental conditions (Far/Close position of the real hand) as factor
+data_ID$Gr <- factor(data_ID$Gr)
+
+
+  
+```
+
+
+Examining the role of prioprioceptive accuracy and experimental conditions (Far/Close) in the RHI illusion strength
+[Questionnaire results]
+
+```{r}
+
+# Test normality of the illusion strength
+shapiro.test(data_ID$str_syn)
+
+# Test differences bewteen far and close conditions in illusion strength (questionnaire)
+wilcox.test(str_syn ~ Gr, data = data_ID, paired = FALSE,  conf.level = 0.95, exact= F)
+#t.test(str_syn ~ Gr, data = data_ID) # parametric equivalent 
+#ttestBF(data_ID$str_syn[data_ID$Gr=="C"], data_ID$str_syn[data_ID$Gr=="F"]) # bayesian factor equivalent
+
+# Test correlation between illusion strength (questionnaire) and prioprioceptive accuracy 
+cor.test(data_ID$diff_M_abs, data_ID$str_syn, method = "spearman", exact = F)
+
+# Linear model
+model <- lm(str_syn ~ Gr + diff_M_abs + Gr:diff_M_abs, data = data_ID)
+summary(model)
+
+# Compute Bayes factors for specific linear models
+Full <- lmBF(str_syn ~ Gr + diff_M_abs + Gr:diff_M_abs, data = data_ID) # Full model
+noInteraction <- lmBF(str_syn ~  Gr + diff_M_abs, data = data_ID) # experimental condition & proprioceptive accuracy
+onlydiff <- lmBF(str_syn ~ diff_M_abs, data=data_ID) # proprioceptive accuracy
+onlyGr <- lmBF(str_syn ~ Gr, data=data_ID) # experimental condition)
+
+# Plot preliminary version
+allBFs <- c(Full,noInteraction,onlydiff, onlyGr)
+plot(allBFs)
+
+# Create vector with Bayes factors taken from the previous analysis (allBFs)
+BFs <- c(0.328, 0.293, 0.095, 0.059)
+
+# Plot Bayes factors for different models
+barplot(BFs, main= "Regression Models for the Illusion Strength", horiz = T, xlim = c(0,1.4), xlab = "Bayes Factor", col = "grey45" , cex.lab = 1.4, cex.main = 1.4)
+abline(v= 0.3, col = "black", lty = 5, lwd = 2)
+abline(v = 1, col = "black", lty = 5, lwd = 2)    
+
+
+```
+
+
+Load and preprocess the physiological data (electrodermal activity)
+
+
+```{r}
+
+# Load physiological data for each paricipant within the loop
+
+for (p in unique(data_ID$ID)) { ifelse(p < 10, ID_str <- paste('0', p, sep = ''), ID_str <- p)  
+
+gsr <- read.table(paste('RHI_',ID_str,'.txt', sep=''), header = F, sep = "\t", fill = TRUE, stringsAsFactors = FALSE)
+names(gsr)=c("time","amp")
+
+gsr$time <- gsr$time * 60
+
+
+# Synchronous stimulation condition
+
+events_syn <- read.table(paste('RHI_',ID_str,'_s_events.txt', sep=''), header = F, sep = " ", fill = TRUE, stringsAsFactors = FALSE)
+names(events_syn)=c("event")
+
+# Mean signal value (within 6 seconds interval after the knife attack)
+data_ID$s1_syn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_syn$event[1] & gsr$time <= (events_syn$event[1] + 6) ])
+data_ID$s2_syn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_syn$event[2] & gsr$time <= (events_syn$event[2] + 6) ])
+data_ID$s3_syn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_syn$event[3] & gsr$time <= (events_syn$event[3] + 6) ])
+data_ID$s4_syn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_syn$event[4] & gsr$time <= (events_syn$event[4] + 6) ])
+data_ID$s5_syn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_syn$event[5] & gsr$time <= (events_syn$event[5] + 6) ])
+
+# The difference between maximal and minimal signal value (within 6 seconds interval after the knife attack) 
+data_ID$s1_syn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_syn$event[1] & gsr$time <= (events_syn$event[1] + 6) ]) - min(gsr$amp[gsr$time >= events_syn$event[1] & gsr$time <= (events_syn$event[1] + 6) ])
+
+data_ID$s2_syn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_syn$event[2] & gsr$time <= (events_syn$event[2] + 6) ]) -
+min(gsr$amp[gsr$time >= events_syn$event[2] & gsr$time <= (events_syn$event[2] + 6) ])
+
+data_ID$s3_syn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_syn$event[3] & gsr$time <= (events_syn$event[3] + 6) ]) - min(gsr$amp[gsr$time >= events_syn$event[3] & gsr$time <= (events_syn$event[3] + 6) ])
+
+data_ID$s4_syn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_syn$event[4] & gsr$time <= (events_syn$event[4] + 6) ]) -
+min(gsr$amp[gsr$time >= events_syn$event[4] & gsr$time <= (events_syn$event[4] + 6) ])
+
+data_ID$s5_syn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_syn$event[5] & gsr$time <= (events_syn$event[5] + 6) ]) -
+min(gsr$amp[gsr$time >= events_syn$event[5] & gsr$time <= (events_syn$event[5] + 6) ])
+
+# Asynchronous stimulation condition
+
+events_asyn <- read.table(paste('RHI_',ID_str,'_a_events.txt', sep=''), header = F, sep = " ", fill = TRUE, stringsAsFactors = FALSE)
+names(events_asyn)=c("event")
+  
+# Mean signal value (within 6 seconds interval after the knife attack)
+data_ID$s1_asyn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_asyn$event[1] & gsr$time <= (events_asyn$event[1] + 6) ])
+data_ID$s2_asyn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_asyn$event[2] & gsr$time <= (events_asyn$event[2] + 6) ])
+data_ID$s3_asyn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_asyn$event[3] & gsr$time <= (events_asyn$event[3] + 6) ])
+data_ID$s4_asyn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_asyn$event[4] & gsr$time <= (events_asyn$event[4] + 6) ])
+data_ID$s5_asyn_m[data_ID$ID == p] <- mean(gsr$amp[gsr$time >= events_asyn$event[5] & gsr$time <= (events_asyn$event[5] + 6) ])
+
+# The difference between maximal and minimal signal value (within 6 seconds interval after the knife attack) 
+data_ID$s1_asyn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_asyn$event[1] & gsr$time <= (events_asyn$event[1] + 6) ]) - min(gsr$amp[gsr$time >= events_asyn$event[1] & gsr$time <= (events_asyn$event[1] + 6) ])
+
+data_ID$s2_asyn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_asyn$event[2] & gsr$time <= (events_asyn$event[2] + 6) ]) -
+min(gsr$amp[gsr$time >= events_asyn$event[2] & gsr$time <= (events_asyn$event[2] + 6) ])
+
+data_ID$s3_asyn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_asyn$event[3] & gsr$time <= (events_asyn$event[3] + 6) ]) - min(gsr$amp[gsr$time >= events_asyn$event[3] & gsr$time <= (events_asyn$event[3] + 6) ])
+
+data_ID$s4_asyn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_asyn$event[4] & gsr$time <= (events_asyn$event[4] + 6) ]) -
+min(gsr$amp[gsr$time >= events_asyn$event[4] & gsr$time <= (events_asyn$event[4] + 6) ])
+
+data_ID$s5_asyn[data_ID$ID == p] <- max(gsr$amp[gsr$time >= events_asyn$event[5] & gsr$time <= (events_asyn$event[5] + 6) ]) -
+min(gsr$amp[gsr$time >= events_asyn$event[5] & gsr$time <= (events_asyn$event[5] + 6) ])
+
+}
+
+
+data_ID$amp_syn <- (data_ID$s1_syn + data_ID$s2_syn + data_ID$s3_syn + data_ID$s4_syn + data_ID$s5_syn) / 5
+data_ID$mean_syn <- (data_ID$s1_syn_m + data_ID$s2_syn_m + data_ID$s3_syn_m + data_ID$s4_syn_m + data_ID$s5_syn_m) / 5
+
+data_ID$amp_asyn <- (data_ID$s1_asyn + data_ID$s2_asyn + data_ID$s3_asyn + data_ID$s4_asyn + data_ID$s5_asyn) / 5
+data_ID$mean_asyn <- (data_ID$s1_asyn_m + data_ID$s2_asyn_m + data_ID$s3_asyn_m + data_ID$s4_asyn_m + data_ID$s5_asyn_m) / 5
+
+
+
+#write.table(data_ID, file = "RHI_data_final", sep = "\t")
+#data_ID <- read.table("RHI_data_final", header = TRUE, sep = "\t", fill = TRUE, stringsAsFactors = FALSE)
+
+#write.csv(data_ID, file = "RHI_d")
+#require(foreign)
+#d <- format(data_ID, digits = 4)
+#write.foreign(data_ID, "RHI_data.txt", "RHI_data.sps",   package="SPSS")
+```
+
+Examining the role of prioprioceptive accuracy and experimental conditions (Far/Close) in the RHI illusion strength
+[Physiological results: Skin conductance response]
+
+```{r}
+
+
+## Test differences between synchronous and asynchronous conditions
+
+#boxplot(data_ID$amp_syn, data_ID$amp_asyn)
+t.test(data_ID$amp_syn, data_ID$amp_asyn, paired = T)
+
+#boxplot(data_ID$mean_syn, data_ID$mean_asyn)
+t.test(data_ID$mean_syn, data_ID$mean_asyn, paired = T)
+
+## Relation between declarative and physiological measures of the illusion strength 
+
+# Synchronous
+scatter.smooth(data_ID$str_syn, data_ID$amp_syn, xlab = "Declared illusion strength", ylab = "Electrodermal activity", cex.lab = 1.2, cex = 1.2, col = "grey6", lwd = 1.5, pch = 1)
+cor.test(data_ID$str_syn, data_ID$amp_syn)
+
+# Asynchronous
+scatter.smooth(data_ID$str_asyn, data_ID$amp_asyn, xlab = "Declared illusion strength", ylab = "Electrodermal activity", cex.lab = 1.2, cex = 1.2, col = "grey6", lwd = 1.5, pch = 1)
+cor.test(data_ID$str_asyn, data_ID$amp_asyn)
+
+### Linear model and Bayes Factors
+
+## Synchronous condition
+
+# Linear model
+model_syn <- lm(amp_syn ~ Gr + diff_M_abs + Gr:diff_M_abs, data = data_ID)
+summary(model_syn)
+
+# Compute Bayes factors for specific linear models
+Full <- lmBF(amp_syn ~ Gr + diff_M_abs + Gr:diff_M_abs, data = data_ID)
+noInteraction <- lmBF(amp_syn ~  Gr + diff_M_abs, data = data_ID)
+onlydiff <- lmBF(amp_syn ~ diff_M_abs, data=data_ID)
+onlyGr <- lmBF(amp_syn ~ Gr, data=data_ID)
+onlyVar <- lmBF(amp_syn ~ diff_SD, data=data_ID)
+
+allBFs <- c(Full,noInteraction,onlydiff, onlyGr)
+allBFs
+
+
+# Synchronous - first attacts only 
+model_syn <- lm(s1_syn ~ Gr + diff_M_abs + Gr:diff_M_abs, data = data_ID)
+summary(model_syn)
+
+
+Full <- lmBF(s1_syn ~ Gr + diff_M_abs + Gr:diff_M_abs, data = data_ID)
+noInteraction <- lmBF(s1_syn ~  Gr + diff_M_abs, data = data_ID)
+onlydiff <- lmBF(s1_syn ~ diff_M_abs, data=data_ID)
+onlyGr <- lmBF(s1_syn ~ Gr, data=data_ID)
+onlyVar <- lmBF(s1_syn ~ diff_SD, data=data_ID)
+
+allBFs <- c(Full,noInteraction,onlydiff, onlyGr)
+allBFs
+
+```
+
+
+
+
+
+
+
