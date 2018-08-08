@@ -5,7 +5,7 @@ Paweł Motyka<sup>1</sup> & Piotr Litwin <sup>1</sup>
 <br/>
 <sup>1</sup>Faculty of Psychology, University of Warsaw, 00-183 Warsaw, Poland <br/>
 
-Corresponding authors: Paweł Motyka, e-mail: pawel.motyka{at}psych.uw.edu.pl <br/>, Piotr Litwin, e-mail: piotr.litwin{at}psych.uw.edu.pl
+Corresponding authors: Paweł Motyka, e-mail: pawel.motyka{at}psych.uw.edu.pl <br/> Piotr Litwin, e-mail: piotr.litwin{at}psych.uw.edu.pl
 <br/>
 
 Abstract:
