@@ -1,6 +1,6 @@
 ## Proprioception does not modulate the strength of the rubber hand illusion
 
-Paweł Motyka<sup>1</sup> & Piotr Litwin <sup>1</sup>
+Paweł Motyka<sup>1</sup> & Piotr Litwin<sup>1</sup>
 <br/>
 <br/>
 <sup>1</sup>Faculty of Psychology, University of Warsaw, 00-183 Warsaw, Poland <br/>
