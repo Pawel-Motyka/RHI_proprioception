@@ -16,3 +16,8 @@ Rubber Hand Illusion (RHI) is caused by spatiotemporally congruent visuotactile 
 #### Keywords: 
 rubber hand illusion, visuo-proprioceptive integration, body ownership, proprioceptive precision, Bayesian multisensory integration
 
+
+
+Performing data analysis:
+
+The folder "_scripts" contains the codes used for data analysis. If you want to run your own preprocessing of electrodermal activity (performed in the section 6), please contact the corresponding author for the raw data. The folder "_dataframes" contains the preprocessed data saved as the outputs from particular sections of the code. This enables starting the analysis of preprocessed data at different sections of the code by reading the relevant data frames using the prepared lines at the beginnings of sections. For example, one could read "RHI_preprocessed_physiological_data(output_from_section_6)" at the beginning of section 7 and run the following section with the analysis of electrodermal activity data. The code along with its outputs and plots can be also viewed by downloading and opening the revelant html file from "_scripts". The folder "_figures" contains the plots from the main and supplementary results.
