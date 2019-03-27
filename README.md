@@ -1,4 +1,4 @@
-## Proprioceptive Accuracy and Degree of Visuo-proprioceptive Discrepancy do not Influence the Strength of the Rubber Hand Illusion
+## Proprioceptive Precision and Degree of Visuo-proprioceptive Discrepancy do not Influence the Strength of the Rubber Hand Illusion
 
 Paweł Motyka<sup>1</sup> & Piotr Litwin<sup>1</sup><sup>,</sup><sup>2</sup>
 <br/>
